@@ -47,5 +47,29 @@ class AsistenciaController extends Controller
             'hora' => $hora,
             'estado' => $estado
         ]);
+        
+    }
+    public function listar()
+    {
+        $ahora = Carbon::now('America/Lima');
+        $fecha = $ahora->toDateString();
+
+        $asistencias = DB::table('asistencias')
+            ->join('docentes', 'asistencias.docente_id', '=', 'docentes.id')
+            ->where('asistencias.fecha', $fecha)
+            ->select('docentes.nombres', 'docentes.apellidos', 'asistencias.hora_marca', 'asistencias.estado')
+            ->orderBy('asistencias.hora_marca', 'desc')
+            ->get();
+
+        // Formateamos los datos para que React los entienda igual
+        $data = $asistencias->map(function($a) {
+            return [
+                'docente' => $a->nombres . ' ' . $a->apellidos,
+                'hora' => $a->hora_marca,
+                'estado' => $a->estado
+            ];
+        });
+
+        return response()->json($data);
     }
 }
