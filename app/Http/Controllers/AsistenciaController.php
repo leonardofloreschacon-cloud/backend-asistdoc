@@ -26,13 +26,27 @@ class AsistenciaController extends Controller
 
         // 3. Obtener la hora EXACTA del servidor (RN-06)
         $ahora = Carbon::now('America/Lima');
-        $fecha = $ahora->toDateString(); // Ej: 2026-11-13
+        $fecha = $ahora->toDateString(); // Ej: 2026-11-16
         $hora = $ahora->toTimeString();  // Ej: 08:15:00
 
-        // 4. Lógica de Tardanza (RN-02)
+        // 4. Verificar duplicidad (RN-01) - ¡NUEVO!
+        $yaMarco = DB::table('asistencias')
+            ->where('docente_id', $docente->id)
+            ->where('fecha', $fecha)
+            ->exists();
+
+        if ($yaMarco) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'La asistencia ya ha sido registrada el día de hoy.'
+            ], 400); // 400 Bad Request
+        }
+
+        // 5. Lógica de Tardanza (RN-02)
+        // Nota: Por ahora está estático (7:45 AM). En una fase futura, se puede cruzar con la tabla 'horarios'.
         $estado = ($hora > '07:45:00') ? 'Tardanza' : 'Asistió';
 
-        // 5. Registrar en la tabla asistencias
+        // 6. Registrar en la tabla asistencias
         DB::table('asistencias')->insert([
             'docente_id' => $docente->id,
             'fecha' => $fecha,
@@ -49,6 +63,7 @@ class AsistenciaController extends Controller
         ]);
         
     }
+
     public function listar()
     {
         $ahora = Carbon::now('America/Lima');
