@@ -10,81 +10,128 @@ class AsistenciaController extends Controller
 {
     public function marcar(Request $request)
     {
-        // 1. Validar que llegue el DNI de 8 dígitos
         $request->validate(['dni' => 'required|digits:8']);
         $dni = $request->dni;
 
-        // 2. Buscar al docente en la base de datos
         $docente = DB::table('docentes')->where('dni', $dni)->first();
 
         if (!$docente) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'mensaje' => 'Docente no encontrado en el sistema.'
             ], 404);
         }
 
-        // 3. Obtener la hora EXACTA del servidor (RN-06)
         $ahora = Carbon::now('America/Lima');
-        $fecha = $ahora->toDateString(); // Ej: 2026-11-16
-        $hora = $ahora->toTimeString();  // Ej: 08:15:00
+        $fecha = $ahora->toDateString();
+        $hora = $ahora->toTimeString();
 
-        // 4. Verificar duplicidad (RN-01) - ¡NUEVO!
-        $yaMarco = DB::table('asistencias')
+        // Buscar si ya existe un registro hoy
+        $asistenciaHoy = DB::table('asistencias')
             ->where('docente_id', $docente->id)
             ->where('fecha', $fecha)
-            ->exists();
+            ->first();
 
-        if ($yaMarco) {
+        // CASO 1: Primer marcaje del día -> ENTRADA
+        if (!$asistenciaHoy) {
+            $estado = ($hora > '07:45:00') ? 'Tardanza' : 'Asistió';
+
+            DB::table('asistencias')->insert([
+                'docente_id' => $docente->id,
+                'fecha' => $fecha,
+                'hora_marca' => $hora,
+                'hora_salida' => null,
+                'estado' => $estado,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             return response()->json([
-                'success' => false,
-                'mensaje' => 'La asistencia ya ha sido registrada el día de hoy.'
-            ], 400); // 400 Bad Request
+                'success' => true,
+                'tipo' => 'entrada',
+                'mensaje' => 'Entrada registrada con éxito.',
+                'docente' => $docente->nombres . ' ' . $docente->apellidos,
+                'hora' => $hora,
+                'hora_salida' => null,
+                'estado' => $estado
+            ]);
         }
 
-        // 5. Lógica de Tardanza (RN-02)
-        // Nota: Por ahora está estático (7:45 AM). En una fase futura, se puede cruzar con la tabla 'horarios'.
-        $estado = ($hora > '07:45:00') ? 'Tardanza' : 'Asistió';
+        // CASO 2: Segundo marcaje del día -> SALIDA
+        if (is_null($asistenciaHoy->hora_salida)) {
+            DB::table('asistencias')
+                ->where('id', $asistenciaHoy->id)
+                ->update([
+                    'hora_salida' => $hora,
+                    'updated_at' => now(),
+                ]);
 
-        // 6. Registrar en la tabla asistencias
-        DB::table('asistencias')->insert([
-            'docente_id' => $docente->id,
-            'fecha' => $fecha,
-            'hora_marca' => $hora,
-            'estado' => $estado
-        ]);
+            return response()->json([
+                'success' => true,
+                'tipo' => 'salida',
+                'mensaje' => 'Hora de salida registrada con éxito.',
+                'docente' => $docente->nombres . ' ' . $docente->apellidos,
+                'hora' => $asistenciaHoy->hora_marca,
+                'hora_salida' => $hora,
+                'estado' => $asistenciaHoy->estado
+            ]);
+        }
 
+        // CASO 3: Ya marcó entrada y salida hoy
         return response()->json([
-            'success' => true,
-            'mensaje' => 'Marcaje registrado con éxito',
-            'docente' => $docente->nombres . ' ' . $docente->apellidos,
-            'hora' => $hora,
-            'estado' => $estado
-        ]);
-        
+            'success' => false,
+            'mensaje' => 'Ya registraste tu entrada y tu salida el día de hoy.'
+        ], 400);
     }
 
     public function listar()
     {
-        $ahora = Carbon::now('America/Lima');
-        $fecha = $ahora->toDateString();
+        $fecha = Carbon::now('America/Lima')->toDateString();
 
         $asistencias = DB::table('asistencias')
             ->join('docentes', 'asistencias.docente_id', '=', 'docentes.id')
             ->where('asistencias.fecha', $fecha)
-            ->select('docentes.nombres', 'docentes.apellidos', 'asistencias.hora_marca', 'asistencias.estado')
+            ->select(
+                'asistencias.id',
+                'docentes.nombres',
+                'docentes.apellidos',
+                'asistencias.fecha',
+                'asistencias.hora_marca',
+                'asistencias.hora_salida',
+                'asistencias.estado'
+            )
             ->orderBy('asistencias.hora_marca', 'desc')
             ->get();
 
-        // Formateamos los datos para que React los entienda igual
-        $data = $asistencias->map(function($a) {
+        $data = $asistencias->map(function ($a) {
             return [
+                'id' => $a->id,
                 'docente' => $a->nombres . ' ' . $a->apellidos,
+                'fecha' => $a->fecha,
                 'hora' => $a->hora_marca,
+                'hora_salida' => $a->hora_salida,
                 'estado' => $a->estado
             ];
         });
 
         return response()->json($data);
+    }
+
+    // Nuevo: historial exclusivo del docente autenticado
+    public function misAsistencias(Request $request)
+    {
+        $docente = $request->user()->docente;
+
+        if (!$docente) {
+            return response()->json(['message' => 'No tienes un perfil de docente asociado.'], 404);
+        }
+
+        $asistencias = DB::table('asistencias')
+            ->where('docente_id', $docente->id)
+            ->orderBy('fecha', 'desc')
+            ->orderBy('hora_marca', 'desc')
+            ->get();
+
+        return response()->json($asistencias);
     }
 }
