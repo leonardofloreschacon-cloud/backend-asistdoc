@@ -7,12 +7,13 @@ use Illuminate\Support\Facades\DB;
 
 class JustificacionController extends Controller
 {
-    // Docente envía su justificación
+    // Docente envía su justificación (con archivo opcional)
     public function store(Request $request)
     {
         $validated = $request->validate([
             'fecha_falta' => 'required|date',
             'motivo' => 'required|string|min:5|max:500',
+            'archivo' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
 
         $docente = $request->user()->docente;
@@ -21,10 +22,23 @@ class JustificacionController extends Controller
             return response()->json(['message' => 'Perfil de docente no encontrado.'], 404);
         }
 
+        $archivoNombre = null;
+        $archivoData = null;
+
+        if ($request->hasFile('archivo')) {
+            $file = $request->file('archivo');
+            $archivoNombre = $file->getClientOriginalName();
+            $mime = $file->getMimeType();
+            $contenido = file_get_contents($file->getRealPath());
+            $archivoData = 'data:' . $mime . ';base64,' . base64_encode($contenido);
+        }
+
         $id = DB::table('justificaciones')->insertGetId([
             'docente_id' => $docente->id,
             'fecha_falta' => $validated['fecha_falta'],
             'motivo' => $validated['motivo'],
+            'archivo_nombre' => $archivoNombre,
+            'archivo_data' => $archivoData,
             'estado' => 'Pendiente',
             'created_at' => now(),
             'updated_at' => now(),
@@ -65,6 +79,8 @@ class JustificacionController extends Controller
                 'docentes.apellidos',
                 'justificaciones.fecha_falta',
                 'justificaciones.motivo',
+                'justificaciones.archivo_nombre',
+                'justificaciones.archivo_data',
                 'justificaciones.estado',
                 'justificaciones.created_at'
             )
