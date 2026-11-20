@@ -93,6 +93,7 @@ class AsistenciaController extends Controller
             ->where('asistencias.fecha', $fecha)
             ->select(
                 'asistencias.id',
+                'docentes.dni',
                 'docentes.nombres',
                 'docentes.apellidos',
                 'asistencias.fecha',
@@ -106,6 +107,7 @@ class AsistenciaController extends Controller
         $data = $asistencias->map(function ($a) {
             return [
                 'id' => $a->id,
+                'dni' => $a->dni,
                 'docente' => $a->nombres . ' ' . $a->apellidos,
                 'fecha' => $a->fecha,
                 'hora' => $a->hora_marca,
@@ -117,7 +119,46 @@ class AsistenciaController extends Controller
         return response()->json($data);
     }
 
-    // Nuevo: historial exclusivo del docente autenticado
+    // Nuevo: reporte filtrado por rango de fechas (para Informes y exportación a Excel)
+    public function reporte(Request $request)
+    {
+        $ahora = Carbon::now('America/Lima');
+        $desde = $request->query('desde', $ahora->copy()->startOfMonth()->toDateString());
+        $hasta = $request->query('hasta', $ahora->toDateString());
+
+        $asistencias = DB::table('asistencias')
+            ->join('docentes', 'asistencias.docente_id', '=', 'docentes.id')
+            ->whereBetween('asistencias.fecha', [$desde, $hasta])
+            ->select(
+                'asistencias.id',
+                'docentes.dni',
+                'docentes.nombres',
+                'docentes.apellidos',
+                'asistencias.fecha',
+                'asistencias.hora_marca',
+                'asistencias.hora_salida',
+                'asistencias.estado'
+            )
+            ->orderBy('asistencias.fecha', 'desc')
+            ->orderBy('asistencias.hora_marca', 'desc')
+            ->get();
+
+        $data = $asistencias->map(function ($a) {
+            return [
+                'id' => $a->id,
+                'dni' => $a->dni,
+                'docente' => $a->nombres . ' ' . $a->apellidos,
+                'fecha' => $a->fecha,
+                'hora' => $a->hora_marca,
+                'hora_salida' => $a->hora_salida,
+                'estado' => $a->estado
+            ];
+        });
+
+        return response()->json($data);
+    }
+
+    // Historial exclusivo del docente autenticado
     public function misAsistencias(Request $request)
     {
         $docente = $request->user()->docente;

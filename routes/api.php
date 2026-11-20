@@ -25,4 +25,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mis-asistencias', [AsistenciaController::class, 'misAsistencias']);
     Route::get('/mis-justificaciones', [JustificacionController::class, 'misJustificaciones']);
     Route::post('/justificaciones', [JustificacionController::class, 'store']);
+    Route::get('/asistencias/reporte', [AsistenciaController::class, 'reporte']);
 });
