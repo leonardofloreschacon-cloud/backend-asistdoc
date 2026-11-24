@@ -51,6 +51,7 @@ class AsistenciaController extends Controller
                 'tipo' => 'entrada',
                 'mensaje' => 'Entrada registrada con éxito.',
                 'docente' => $docente->nombres . ' ' . $docente->apellidos,
+                'foto_url' => $docente->foto_url,
                 'hora' => $hora,
                 'hora_salida' => null,
                 'estado' => $estado
@@ -71,6 +72,7 @@ class AsistenciaController extends Controller
                 'tipo' => 'salida',
                 'mensaje' => 'Hora de salida registrada con éxito.',
                 'docente' => $docente->nombres . ' ' . $docente->apellidos,
+                'foto_url' => $docente->foto_url,
                 'hora' => $asistenciaHoy->hora_marca,
                 'hora_salida' => $hora,
                 'estado' => $asistenciaHoy->estado
@@ -96,6 +98,7 @@ class AsistenciaController extends Controller
                 'docentes.dni',
                 'docentes.nombres',
                 'docentes.apellidos',
+                'docentes.foto_url',
                 'asistencias.fecha',
                 'asistencias.hora_marca',
                 'asistencias.hora_salida',
@@ -109,6 +112,7 @@ class AsistenciaController extends Controller
                 'id' => $a->id,
                 'dni' => $a->dni,
                 'docente' => $a->nombres . ' ' . $a->apellidos,
+                'foto_url' => $a->foto_url,
                 'fecha' => $a->fecha,
                 'hora' => $a->hora_marca,
                 'hora_salida' => $a->hora_salida,
@@ -119,7 +123,7 @@ class AsistenciaController extends Controller
         return response()->json($data);
     }
 
-    // Nuevo: reporte filtrado por rango de fechas (para Informes y exportación a Excel)
+    // Reporte filtrado por rango de fechas (para Informes y exportación a Excel)
     public function reporte(Request $request)
     {
         $ahora = Carbon::now('America/Lima');

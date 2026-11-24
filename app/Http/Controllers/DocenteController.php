@@ -20,7 +20,8 @@ class DocenteController extends Controller
             'dni' => 'required|string|size:8|unique:docentes',
             'nombres' => 'required|string',
             'apellidos' => 'required|string',
-            'pin' => 'required|string|min:4'
+            'pin' => 'required|string|min:4',
+            'foto_url' => 'nullable|string|max:255',
         ]);
 
         // Crear el usuario asociado
@@ -35,6 +36,7 @@ class DocenteController extends Controller
             'dni' => $validated['dni'],
             'nombres' => $validated['nombres'],
             'apellidos' => $validated['apellidos'],
+            'foto_url' => $validated['foto_url'] ?? null,
             'usuario_id' => $user->id,
         ]);
 

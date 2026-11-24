@@ -13,6 +13,7 @@ class Docente extends Model
         'dni',
         'nombres',
         'apellidos',
+        'foto_url',
         'usuario_id',
     ];
 
